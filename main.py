@@ -26,7 +26,7 @@ class Variable:
         Variable.other_vars[symbol] = self
 
     def __eq__(self, other):
-        return self.symbol == other.symbol
+        return isinstance(other, symbol) and self.symbol == other.symbol
 
     def __hash__(self):
         return hash(self.symbol)
@@ -111,15 +111,22 @@ class Monomial:
         return Monomial(coefficient * exp, new_variables)
 
     def __eq__(self, other):
-        return self.coefficient == other.coefficient and self.variables == other.variables
+        if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
+            return self.coefficient == other and all(self.variables[var] == 0 for var in self.variables)
+        elif isinstance(other, Monomial):
+            return self.coefficient == other.coefficient and self.variables == other.variables
+        elif isinstance(other, Polynomial):
+            return Polynomial(self) == other
+        else:
+            raise TypeError("Cannot compare Monomial and", type(other))
 
     def __str__(self):
-        return (str(self.coefficient) if self.coefficient != 1 else "") + \
+        return str(self.coefficient) + \
                "".join(str(var) + ('^' + str(self.variables[var]) if self.variables[var] != 1 else "") \
                     for var in sorted(self.variables, key=lambda var: var.symbol))
 
     def __repr__(self):
-        return (str(self.coefficient) if self.coefficient != 1 else "") + \
+        return str(self.coefficient) + \
                "".join(str(var) + ('^' + str(self.variables[var]) if self.variables[var] != 1 else "") \
                     for var in sorted(self.variables, key=lambda var: var.symbol))
 
@@ -133,8 +140,6 @@ class Polynomial:
         self.ordering = grevlex
         self.monomials = []
 
-        self.leading_monomial = self.monomials[0]
-
         monomials = list(monomials)
         monomials.sort(key=cmp_to_key(self.ordering), reverse=True)
 
@@ -145,10 +150,22 @@ class Polynomial:
             else:
                 self.monomials.append(monomial)
 
+        i = 0
+        while i < len(self.monomials):
+            if self.monomials[i].coefficient == 0:
+                del self.monomials[i]
+            else:
+                i += 1
+
+        if self.monomials == []:
+            self.monomials = [Monomial(0)]
+
+        self.leading_monomial = self.monomials[0]
+
     def __mul__(self, other):
         """ Simple n^2 multiplication. Better algorithms exist, but this is easier. """
         if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
-            return self * Monomial(other)
+            return self * Polynomial(Monomial(other))
         elif isinstance(other, Monomial):
             return self * Polynomial(other)
         elif isinstance(other, Polynomial):
@@ -163,36 +180,73 @@ class Polynomial:
         new_monomials = []
         remainders = []
 
+        curr = self
         for monomial in self.monomials:
-            quot, rem = divmod(other.leading_monomial, monomial)
-            
+            quot, rem = monomial.divmod(other.leading_monomial)
+            if rem != 0:
+                remainders.append(monomial)
+                curr -= curr.leading_monomial
+            else:
+                new_monomials.append(quot)
+                curr -= other * quot
+            if curr == 0:
+                break
+
+        quot = Polynomial(*new_monomials) if new_monomials != [] else Monomial(0)
+        rem = Polynomial(*remainders) if remainders != [] else Monomial(0)
+        return quot, rem
 
     def __add__(self, other):
-        new_monomials = []
-        i = j = 0
-        while i < len(self.monomials) and j < len(other.monomials):
-            if self.ordering(self.monomials[i], other.monomials[j]) < 0:
-                new_monomials.append(other.monomials[j])
-                j += 1
-            elif self.ordering(self.monomials[i], other.monomials[j]) > 0:
+        if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
+            return self + Polynomial(Monomial(other))
+        elif isinstance(other, Monomial):
+            return self + Polynomial(other)
+        elif isinstance(other, Polynomial):
+            new_monomials = []
+            i = j = 0
+            while i < len(self.monomials) and j < len(other.monomials):
+                if self.ordering(self.monomials[i], other.monomials[j]) < 0:
+                    new_monomials.append(other.monomials[j])
+                    j += 1
+                elif self.ordering(self.monomials[i], other.monomials[j]) > 0:
+                    new_monomials.append(self.monomials[i])
+                    i += 1
+                else:
+                    new_monomials.append(self.monomials[i] + other.monomials[j])
+                    i += 1
+                    j += 1
+
+            while i < len(self.monomials):
                 new_monomials.append(self.monomials[i])
                 i += 1
-            else:
-                new_monomials.append(self.monomials[i] + other.monomials[j])
-                i += 1
+            while j < len(other.monomials):
+                new_monomials.append(other.monomials[j])
                 j += 1
 
-        return Polynomial(*new_monomials) # I think this will already be in order, so maybe we can bypass the reordering in __init__?
+            return Polynomial(*new_monomials) # I think this will already be in order, so maybe we can bypass the reordering in __init__?
+
+    def __eq__(self, other):
+        if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
+            return len(self.monomials) == 1 and self.monomials[0] == other
+        elif isinstance(other, Monomial):
+            return self == Polynomial(other)
+        elif isinstance(other, Polynomial):
+            return self.monomials == other.monomials
+        else:
+            raise TypeError("Cannot compare Polynomial and", type(other))
 
     def __sub__(self, other):
         return self + other * -1
 
     def __str__(self):
+        if self.monomials == []:
+            return "1"
         return " + ".join(map(str, self.monomials))
 
     def __repr__(self):
+        if self.monomials == []:
+            return "1"
         return " + ".join(map(str, self.monomials))
-
 
 
 # For testing
@@ -207,3 +261,4 @@ m4 = Monomial(9, {x: 10, y: 11, z: 100})
 
 p1 = Polynomial(m1, m2)
 p2 = Polynomial(m3)
+p3 = Polynomial(m4)
