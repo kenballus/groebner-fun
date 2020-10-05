@@ -1,6 +1,4 @@
 from string import ascii_uppercase, ascii_lowercase
-from collections import defaultdict
-from copy import copy
 from functools import cmp_to_key
 from fractions import Fraction
 
@@ -44,14 +42,16 @@ class Monomial:
         assert all(isinstance(var, Variable) and isinstance(variables[var], int) for var in variables)
 
         self.coefficient = coefficient
-        self.variables = copy(variables)
+        self.variables = variables if self.coefficient != 0 else {}
+        # I would copy variables to avoid accidentally changing this object, but Python attributes are all public anyway
 
         self.degree = sum(self.variables[var] for var in self.variables)
 
     def __add__(self, other):
         if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
-            return self + Monomial(other)
-        elif isinstance(other, Monomial):
+            other = Monomial(other)
+        
+        if isinstance(other, Monomial):
             if self.variables == other.variables:
                 return Monomial(self.coefficient + other.coefficient, self.variables)
             else:
@@ -69,14 +69,15 @@ class Monomial:
         elif isinstance(other, Monomial):
             coefficient = self.coefficient * other.coefficient
 
-            new_variables = defaultdict(lambda: 0)
+            new_variables = {}
             for var in {**self.variables, **other.variables}:
+                new_variables[var] = 0
                 if var in self.variables:
                     new_variables[var] += self.variables[var]
                 if var in other.variables:
                     new_variables[var] += other.variables[var]
 
-            return Monomial(coefficient, dict(new_variables))
+            return Monomial(coefficient, new_variables)
 
         elif isinstance(other, Polynomial):
             return Polynomial(self) * other
@@ -101,11 +102,10 @@ class Monomial:
 
         return Monomial(coefficient, new_variables), 0
 
-
     def __pow__(self, exp):
         assert isinstance(exp, int)
 
-        new_variables = copy(self.variables)
+        new_variables = self.variables.copy()
         for var in new_variables:
             new_variables[var] *= exp
         return Monomial(coefficient * exp, new_variables)
@@ -135,7 +135,7 @@ class Monomial:
 
 class Polynomial:
     def __init__(self, *monomials):
-        assert monomials != [] and all(isinstance(monomial, Monomial) for monomial in monomials)
+        assert monomials != () and all(isinstance(monomial, Monomial) for monomial in monomials)
         
         self.ordering = grevlex
         self.monomials = []
@@ -165,32 +165,33 @@ class Polynomial:
     def __mul__(self, other):
         """ Simple n^2 multiplication. Better algorithms exist, but this is easier. """
         if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
-            return self * Polynomial(Monomial(other))
+            other = Polynomial(Monomial(other))
         elif isinstance(other, Monomial):
-            return self * Polynomial(other)
-        elif isinstance(other, Polynomial):
+            other = Polynomial(other)
+        
+        if isinstance(other, Polynomial):
             new_monomials = []
-            for i in range(len(self.monomials)):
-                for j in range(len(other.monomials)):
-                    new_monomials.append(self.monomials[i] * other.monomials[j])
-
+            for m1 in self.monomials:
+                for m2 in other.monomials:
+                    new_monomials.append(m1 * m2)
             return Polynomial(*new_monomials)
+        else:
+            raise TypeError("Cannot multiply Polynomial with", type(other))
 
     def divmod(self, other):
         new_monomials = []
         remainders = []
 
         curr = self
-        for monomial in self.monomials:
-            quot, rem = monomial.divmod(other.leading_monomial)
+        while curr != 0:
+            curr_monomial = curr.leading_monomial
+            quot, rem = curr_monomial.divmod(other.leading_monomial)
             if rem != 0:
-                remainders.append(monomial)
-                curr -= curr.leading_monomial
+                remainders.append(curr_monomial)
+                curr -= curr_monomial
             else:
                 new_monomials.append(quot)
                 curr -= other * quot
-            if curr == 0:
-                break
 
         quot = Polynomial(*new_monomials) if new_monomials != [] else Monomial(0)
         rem = Polynomial(*remainders) if remainders != [] else Monomial(0)
@@ -198,10 +199,11 @@ class Polynomial:
 
     def __add__(self, other):
         if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
-            return self + Polynomial(Monomial(other))
+            other = Polynomial(Monomial(other))
         elif isinstance(other, Monomial):
-            return self + Polynomial(other)
-        elif isinstance(other, Polynomial):
+            other = Polynomial(other)
+        
+        if isinstance(other, Polynomial):
             new_monomials = []
             i = j = 0
             while i < len(self.monomials) and j < len(other.monomials):
@@ -224,6 +226,8 @@ class Polynomial:
                 j += 1
 
             return Polynomial(*new_monomials) # I think this will already be in order, so maybe we can bypass the reordering in __init__?
+        else:
+            raise TypeError("Cannot add Polynomial with", type(other))
 
     def __eq__(self, other):
         if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
@@ -233,7 +237,7 @@ class Polynomial:
         elif isinstance(other, Polynomial):
             return self.monomials == other.monomials
         else:
-            raise TypeError("Cannot compare Polynomial and", type(other))
+            raise TypeError("Cannot compare Polynomial with", type(other))
 
     def __sub__(self, other):
         return self + other * -1
@@ -257,8 +261,8 @@ z = Variable("z")
 m1 = Monomial(2, {x: 1, z: 1})
 m2 = Monomial(3, {y: 2})
 m3 = Monomial(1, {x: 1})
-m4 = Monomial(9, {x: 10, y: 11, z: 100})
+m4 = Monomial(1, {x: 3, y: 2, z: 2})
 
 p1 = Polynomial(m1, m2)
 p2 = Polynomial(m3)
-p3 = Polynomial(m4)
+p3 = Polynomial(m4, m3)
