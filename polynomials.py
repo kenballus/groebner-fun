@@ -35,8 +35,8 @@ class Variable:
     def __repr__(self):
         return self.symbol
 
+
 class Monomial:
-    """ As it is, this class doesn't do well if you give it a zero-power variable. """
     def __init__(self, coefficient, variables={}): # Mutable default parameters are usually a big mistake in Python, but it's actually ok here.
         assert any(isinstance(coefficient, coefficient_type) for coefficient_type in COEFFICIENT_TYPES)
         assert all(isinstance(var, Variable) and isinstance(variables[var], int) for var in variables)
@@ -44,6 +44,14 @@ class Monomial:
         self.coefficient = coefficient
         self.variables = variables if self.coefficient != 0 else {}
         # I would copy variables to avoid accidentally changing this object, but Python attributes are all public anyway
+
+        # Clean up the variables dict in case they gave us 0 power variables
+        to_delete = []
+        for var in self.variables:
+            if self.variables[var] == 0:
+                to_delete.append(var)
+        for var in to_delete:
+            del self.variables[var]
 
         self.degree = sum(self.variables[var] for var in self.variables)
 
@@ -82,7 +90,7 @@ class Monomial:
         elif isinstance(other, Polynomial):
             return Polynomial(self) * other
 
-    def divmod(self, other):
+    def __truediv__(self, other):
         coefficient = Fraction(self.coefficient, other.coefficient)
 
         new_variables = {}
@@ -133,6 +141,22 @@ class Monomial:
     def __hash__(self):
         return hash(repr(self))
 
+
+def monomial_lcm(m1, m2):
+    """ Note: The zero-checks here aren't necessary if the Monomial object is being used correctly. """
+    new_variables = {}
+    for var in {**m1.variables, **m2.variables}:
+        new_variables[var] = 0
+        if var in m1.variables and m1.variables[var] != 0:
+            new_variables[var] = m1.variables[var]
+        if var in m2.variables:
+            new_variables[var] = max(new_variables[var], m2.variables[var])
+        if new_variables[var] == 0:
+            del new_variables[var]
+
+    return Monomial(1, new_variables)
+
+
 class Polynomial:
     def __init__(self, *monomials):
         assert monomials != () and all(isinstance(monomial, Monomial) for monomial in monomials)
@@ -160,8 +184,6 @@ class Polynomial:
         if self.monomials == []:
             self.monomials = [Monomial(0)]
 
-        self.leading_monomial = self.monomials[0]
-
     def __mul__(self, other):
         """ Simple n^2 multiplication. Better algorithms exist, but this is easier. """
         if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
@@ -178,14 +200,14 @@ class Polynomial:
         else:
             raise TypeError("Cannot multiply Polynomial with", type(other))
 
-    def divmod(self, other):
+    def __truediv__(self, other):
         new_monomials = []
         remainders = []
 
         curr = self
         while curr != 0:
-            curr_monomial = curr.leading_monomial
-            quot, rem = curr_monomial.divmod(other.leading_monomial)
+            curr_monomial = leading_term(curr)
+            quot, rem = curr_monomial / leading_term(other)
             if rem != 0:
                 remainders.append(curr_monomial)
                 curr -= curr_monomial
@@ -251,6 +273,54 @@ class Polynomial:
         if self.monomials == []:
             return "1"
         return " + ".join(map(str, self.monomials))
+
+    def __hash__(self):
+        return hash(str(self))
+
+
+def leading_term(p):
+    return p.monomials[0]
+
+def leading_monomial(p):
+    return Monomial(1, p.monomials[0].variables)
+
+def s_polynomial(p1, p2):
+    lcm = monomial_lcm(leading_monomial(p1), leading_monomial(p2))
+    q1, r1 = lcm / leading_term(p1)
+    q2, r2 = lcm / leading_term(p2)
+    
+    assert r1 == r2 == 0
+
+    return q1 * p1 - q2 * p2
+
+def buchberger(*polynomials):
+    tried = set()
+    while True:
+        to_add = []
+        for i in range(len(polynomials)):
+            for j in range(i + 1, len(polynomials)):
+                p1 = polynomials[i]
+                p2 = polynomials[j]
+            
+                if (p1, p2) in tried:
+                    continue
+                else:
+                    tried.add((p1, p2))
+
+                s = s_polynomial(p1, p2)
+                for p in polynomials:
+                    q, r = s / p
+                    if r == 0:
+                        break
+                else:
+                    to_add.append(s)
+        if to_add == []:
+            break
+        else:
+            polynomials.append(to_add)
+    return polynomials
+
+
 
 
 # For testing
