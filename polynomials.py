@@ -293,6 +293,10 @@ def s_polynomial(p1, p2):
 
     return q1 * p1 - q2 * p2
 
+def lead_reducible(p1, p2):
+    _, r = leading_monomial(p1) / leading_monomial(p2)
+    return r == 0
+
 def buchberger(*polynomials):
     polynomials = list(polynomials)
     tried = set()
@@ -310,21 +314,19 @@ def buchberger(*polynomials):
                 # The meat
                 s = s_polynomial(p1, p2)
                 for p in polynomials:
-                    q, r = s / p
-                    if r == 0:
+                    if lead_reducible(s, p):
                         break
                 else:
                     to_add = s
                     break # Double break. Makes me long for goto
             else:
                 continue
-            break # continuation fo the double break
+            break # continuation of the double break
 
         if to_add is None:
             break
         else:
             polynomials.append(to_add)
-            print("Adding", to_add)
 
     return polynomials
 
