@@ -294,30 +294,38 @@ def s_polynomial(p1, p2):
     return q1 * p1 - q2 * p2
 
 def buchberger(*polynomials):
+    polynomials = list(polynomials)
     tried = set()
     while True:
-        to_add = []
+        to_add = None
         for i in range(len(polynomials)):
             for j in range(i + 1, len(polynomials)):
                 p1 = polynomials[i]
                 p2 = polynomials[j]
-            
                 if (p1, p2) in tried:
                     continue
                 else:
                     tried.add((p1, p2))
 
+                # The meat
                 s = s_polynomial(p1, p2)
                 for p in polynomials:
                     q, r = s / p
                     if r == 0:
                         break
                 else:
-                    to_add.append(s)
-        if to_add == []:
+                    to_add = s
+                    break # Double break. Makes me long for goto
+            else:
+                continue
+            break # continuation fo the double break
+
+        if to_add is None:
             break
         else:
             polynomials.append(to_add)
+            print("Adding", to_add)
+
     return polynomials
 
 
