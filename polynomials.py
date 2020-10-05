@@ -1,10 +1,10 @@
-from string import ascii_uppercase, ascii_lowercase
 from functools import cmp_to_key
 from fractions import Fraction
 
 from orderings import grevlex
 
 COEFFICIENT_TYPES = (int, Fraction) # For now.
+ORDERING = grevlex
 
 class Variable:
     """ This class is unnecessary. I could have just used chars. """
@@ -18,7 +18,7 @@ class Variable:
         return super().__new__(cls)
 
     def __init__(self, symbol):
-        assert symbol in ascii_lowercase + ascii_uppercase
+        assert symbol in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
         self.symbol = symbol
         Variable.other_vars[symbol] = self
@@ -160,16 +160,15 @@ def monomial_lcm(m1, m2):
 class Polynomial:
     def __init__(self, *monomials):
         assert monomials != () and all(isinstance(monomial, Monomial) for monomial in monomials)
-        
-        self.ordering = grevlex
+
         self.monomials = []
 
         monomials = list(monomials)
-        monomials.sort(key=cmp_to_key(self.ordering), reverse=True)
+        monomials.sort(key=cmp_to_key(ORDERING), reverse=True)
 
         self.monomials.append(monomials[0])
         for monomial in monomials[1:]:
-            if self.ordering(self.monomials[-1], monomial) == 0:
+            if ORDERING(self.monomials[-1], monomial) == 0:
                 self.monomials[-1] = monomial + self.monomials[-1]
             else:
                 self.monomials.append(monomial)
@@ -229,10 +228,10 @@ class Polynomial:
             new_monomials = []
             i = j = 0
             while i < len(self.monomials) and j < len(other.monomials):
-                if self.ordering(self.monomials[i], other.monomials[j]) < 0:
+                if ORDERING(self.monomials[i], other.monomials[j]) < 0:
                     new_monomials.append(other.monomials[j])
                     j += 1
-                elif self.ordering(self.monomials[i], other.monomials[j]) > 0:
+                elif ORDERING(self.monomials[i], other.monomials[j]) > 0:
                     new_monomials.append(self.monomials[i])
                     i += 1
                 else:
@@ -298,6 +297,7 @@ def lead_reducible(p1, p2):
     return r == 0
 
 def buchberger(*polynomials):
+    """ Takes some number of polynomials, returns a Groebner basis for them. """
     polynomials = list(polynomials)
     tried = set()
     while True:
