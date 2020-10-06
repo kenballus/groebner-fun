@@ -304,7 +304,7 @@ def lead_reducible(p1, p2):
     _, r = leading_monomial(p1) / leading_monomial(p2)
     return r == 0
 
-def buchberger(*polynomials, minimal=False):
+def buchberger(*polynomials):
     """ Takes some number of polynomials, returns a Groebner basis for them. """
     polynomials = list(polynomials)
     tried = set()
@@ -343,11 +343,12 @@ def buchberger(*polynomials, minimal=False):
         
         polynomials.append(to_add)
 
-    if not minimal:
-        return polynomials
+    return polynomials
 
-    # Removing unnecessary elements of the GB.
+def minimize_gb(*polynomials):
     # Basically, we just check if any terms are lead-reducible by other terms, and delete the ones that are
+    polynomials = list(polynomials)
+
     while True:
         index_to_delete = None
         for i in range(len(polynomials)):
@@ -382,7 +383,7 @@ class Ideal:
     def __contains__(self, p):
         assert isinstance(p, Polynomial)
 
-        return any((p / g)[1] == 0 for g in buchberger(*self.generators))
+        return any(lead_reducible(p, g) for g in buchberger(*self.generators))
 
 
 # For testing
