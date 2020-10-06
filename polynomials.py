@@ -200,6 +200,11 @@ class Polynomial:
             raise TypeError("Cannot multiply Polynomial with", type(other))
 
     def __truediv__(self, other):
+        if any(isinstance(other, coefficient_type) for coefficient_type in COEFFICIENT_TYPES):
+            other = Polynomial(Monomial(other))
+        elif isinstance(other, Monomial):
+            other = Polynomial(other)
+
         quotients = []
         remainders = []
 
@@ -283,6 +288,9 @@ def leading_term(p):
 def leading_monomial(p):
     return Monomial(1, p.monomials[0].variables)
 
+def leading_coefficient(p):
+    return leading_term(p).coefficient
+
 def s_polynomial(p1, p2):
     lcm = monomial_lcm(leading_monomial(p1), leading_monomial(p2))
     q1, r1 = lcm / leading_term(p1)
@@ -296,7 +304,7 @@ def lead_reducible(p1, p2):
     _, r = leading_monomial(p1) / leading_monomial(p2)
     return r == 0
 
-def buchberger(*polynomials, reduced=False):
+def buchberger(*polynomials, minimal=False):
     """ Takes some number of polynomials, returns a Groebner basis for them. """
     polynomials = list(polynomials)
     tried = set()
@@ -335,7 +343,7 @@ def buchberger(*polynomials, reduced=False):
         
         polynomials.append(to_add)
 
-    if not reduced:
+    if not minimal:
         return polynomials
 
     # Removing unnecessary elements of the GB.
@@ -356,6 +364,11 @@ def buchberger(*polynomials, reduced=False):
                 break
         if index_to_delete is None:
             break
+
+    # The make all leading monomials monic
+    for i in range(len(polynomials)):
+        polynomials[i] = (polynomials[i] / leading_coefficient(polynomials[i]))[0]
+
     return polynomials
 
 class Ideal:
