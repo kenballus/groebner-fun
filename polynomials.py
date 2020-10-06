@@ -191,16 +191,16 @@ class Polynomial:
             other = Polynomial(other)
         
         if isinstance(other, Polynomial):
-            new_monomials = []
+            products = []
             for m1 in self.monomials:
                 for m2 in other.monomials:
-                    new_monomials.append(m1 * m2)
-            return Polynomial(*new_monomials)
+                    products.append(m1 * m2)
+            return Polynomial(*products)
         else:
             raise TypeError("Cannot multiply Polynomial with", type(other))
 
     def __truediv__(self, other):
-        new_monomials = []
+        quotients = []
         remainders = []
 
         curr = self
@@ -211,10 +211,10 @@ class Polynomial:
                 remainders.append(curr_monomial)
                 curr -= curr_monomial
             else:
-                new_monomials.append(quot)
+                quotients.append(quot)
                 curr -= other * quot
 
-        quot = Polynomial(*new_monomials) if new_monomials != [] else Monomial(0)
+        quot = Polynomial(*quotients) if quotients != [] else Monomial(0)
         rem = Polynomial(*remainders) if remainders != [] else Monomial(0)
         return quot, rem
 
@@ -296,14 +296,20 @@ def lead_reducible(p1, p2):
     _, r = leading_monomial(p1) / leading_monomial(p2)
     return r == 0
 
-def buchberger(*polynomials):
+def buchberger(*polynomials, reduced=False):
     """ Takes some number of polynomials, returns a Groebner basis for them. """
     polynomials = list(polynomials)
     tried = set()
     while True:
         to_add = None
         for i in range(len(polynomials)):
-            for j in range(i + 1, len(polynomials)):
+            for j in range(len(polynomials)):
+                if i == j:
+                    continue
+
+                # You might be tempted to think we can just loop starting from j=i+1.
+                # I don't think we can do that, since S(p1, p2) != S(p2, p1)
+
                 p1 = polynomials[i]
                 p2 = polynomials[j]
                 if (p1, p2) in tried:
@@ -311,8 +317,9 @@ def buchberger(*polynomials):
                 else:
                     tried.add((p1, p2))
 
-                # The meat
                 s = s_polynomial(p1, p2)
+
+                # If s is lead-reducible by anything in polynomials, we can skip it.
                 for p in polynomials:
                     if lead_reducible(s, p):
                         break
@@ -325,12 +332,44 @@ def buchberger(*polynomials):
 
         if to_add is None:
             break
-        else:
-            polynomials.append(to_add)
+        
+        polynomials.append(to_add)
 
+    if not reduced:
+        return polynomials
+
+    # Removing unnecessary elements of the GB.
+    # Basically, we just check if any terms are lead-reducible by other terms, and delete the ones that are
+    while True:
+        index_to_delete = None
+        for i in range(len(polynomials)):
+            for j in range(len(polynomials)):
+                if i == j:
+                    continue
+                p1 = polynomials[i]
+                p2 = polynomials[j]
+                if lead_reducible(p1, p2):
+                    index_to_delete = i
+                    break
+            if index_to_delete is not None:
+                del polynomials[index_to_delete]
+                break
+        if index_to_delete is None:
+            break
     return polynomials
 
+class Ideal:
+    def __init__(self, *generators):
+        assert generators != () and all(isinstance(g, Polynomial) for g in generators)
+        self.generators = generators
 
+    def __str__(self):
+        return f"ideal{self.generators}"
+
+    def __contains__(self, p):
+        assert isinstance(p, Polynomial)
+
+        return any((p / g)[1] == 0 for g in buchberger(*self.generators))
 
 
 # For testing
