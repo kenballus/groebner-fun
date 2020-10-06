@@ -339,7 +339,6 @@ def buchberger(*polynomials):
     return polynomials
 
 def minimize_gb(*polynomials):
-    # Basically, we just check if any terms are lead-reducible by other terms, and delete the ones that are
     polynomials = list(polynomials)
 
     # Removing unnecessary elements of the GB.
