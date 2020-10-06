@@ -311,19 +311,12 @@ def buchberger(*polynomials, minimal=False):
     while True:
         to_add = None
         for i in range(len(polynomials)):
-            for j in range(len(polynomials)):
-                if i == j:
-                    continue
-
-                # You might be tempted to think we can just loop starting from j=i+1.
-                # I don't think we can do that, since S(p1, p2) != S(p2, p1)
-
+            for j in range(i + 1, len(polynomials)):
                 p1 = polynomials[i]
                 p2 = polynomials[j]
                 if (p1, p2) in tried:
                     continue
-                else:
-                    tried.add((p1, p2))
+                tried.add((p1, p2))
 
                 s = s_polynomial(p1, p2)
 
@@ -347,7 +340,8 @@ def buchberger(*polynomials, minimal=False):
         return polynomials
 
     # Removing unnecessary elements of the GB.
-    # Basically, we just check if any terms are lead-reducible by other terms, and delete the ones that are
+    # Basically, we just check if any terms are lead-reducible by other terms, and delete the ones that are.
+    tried = set()
     while True:
         index_to_delete = None
         for i in range(len(polynomials)):
@@ -356,6 +350,11 @@ def buchberger(*polynomials, minimal=False):
                     continue
                 p1 = polynomials[i]
                 p2 = polynomials[j]
+
+                if (p1, p2) in tried:
+                    continue
+                tried.add((p1, p2))
+
                 if lead_reducible(p1, p2):
                     index_to_delete = i
                     break
