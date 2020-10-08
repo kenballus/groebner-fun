@@ -304,6 +304,10 @@ def lead_reducible(p1, p2):
     _, r = leading_monomial(p1) / leading_monomial(p2)
     return r == 0
 
+def divisible(p1, p2):
+    _, r = p1 / p2
+    return r == 0
+
 def buchberger(*polynomials):
     """ Takes some number of polynomials, returns a Groebner basis for them. """
     polynomials = list(polynomials)
@@ -318,31 +322,34 @@ def buchberger(*polynomials):
                     continue
                 tried.add((p1, p2))
 
-                s = s_polynomial(p1, p2)
+                s = s_orig = s_polynomial(p1, p2)
 
-                # If s is lead-reducible by anything in polynomials, we can skip it.
+                # Divide s by our polynomials until r == 0 or we're out of polynomials.
+                # If we run out of polynomials, that means our GB is incomplete!
                 for p in polynomials:
-                    if lead_reducible(s, p):
+                    _, r = s / p
+                    if r == 0:
                         break
+                    else:
+                        s = r
                 else:
-                    to_add = s
+                    to_add = s_orig
                     break # Double break. Makes me long for goto
             else:
                 continue
             break # continuation of the double break
 
-        if to_add is None:
+        if to_add is not None:
+            polynomials.append(to_add)
+        else:
             break
-        
-        polynomials.append(to_add)
 
     return polynomials
 
 def minimize_gb(*polynomials):
+    """ This probably doesn't work """
     polynomials = list(polynomials)
 
-    # Removing unnecessary elements of the GB.
-    # Basically, we just check if any terms are lead-reducible by other terms, and delete the ones that are.
     tried = set()
     while True:
         index_to_delete = None
@@ -366,13 +373,14 @@ def minimize_gb(*polynomials):
         if index_to_delete is None:
             break
 
-    # The make all leading monomials monic
+    # Then make all leading monomials monic
     for i in range(len(polynomials)):
         polynomials[i] = (polynomials[i] / leading_coefficient(polynomials[i]))[0]
 
     return polynomials
 
 class Ideal:
+    """ Definitely incomplete """
     def __init__(self, *generators):
         assert generators != () and all(isinstance(g, Polynomial) for g in generators)
         self.generators = generators
