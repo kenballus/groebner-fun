@@ -1,6 +1,8 @@
 from functools import cmp_to_key
 from fractions import Fraction
 
+from random import randint
+
 from orderings import grevlex
 
 COEFFICIENT_TYPES = (int, Fraction) # For now.
@@ -346,38 +348,34 @@ def buchberger(*polynomials):
 
     return polynomials
 
-def minimize_gb(*polynomials):
-    """ This probably doesn't work """
-    polynomials = list(polynomials)
+# def minimize_gb(*polynomials):
+#     """ This probably doesn't work """
+#     polynomials = list(polynomials)
 
-    tried = set()
-    while True:
-        index_to_delete = None
-        for i in range(len(polynomials)):
-            for j in range(len(polynomials)):
-                if i == j:
-                    continue
-                p1 = polynomials[i]
-                p2 = polynomials[j]
+#     tried = set()
+#     while True:
+#         index_to_delete = None
+#         for i in range(len(polynomials)):
+#             for j in range(len(polynomials)):
+#                 if i == j:
+#                     continue
+#                 p1 = polynomials[i]
+#                 p2 = polynomials[j]
 
-                if (p1, p2) in tried:
-                    continue
-                tried.add((p1, p2))
+#                 if (p1, p2) in tried:
+#                     continue
+#                 tried.add((p1, p2))
 
-                if lead_reducible(p1, p2):
-                    index_to_delete = i
-                    break
-            if index_to_delete is not None:
-                del polynomials[index_to_delete]
-                break
-        if index_to_delete is None:
-            break
+#                 if lead_reducible(p1, p2):
+#                     index_to_delete = i
+#                     break
+#             if index_to_delete is not None:
+#                 del polynomials[index_to_delete]
+#                 break
+#         if index_to_delete is None:
+#             break
 
-    # Then make all leading monomials monic
-    for i in range(len(polynomials)):
-        polynomials[i] = (polynomials[i] / leading_coefficient(polynomials[i]))[0]
-
-    return polynomials
+#     return polynomials
 
 class Ideal:
     """ Definitely incomplete """
@@ -391,8 +389,30 @@ class Ideal:
     def __contains__(self, p):
         assert isinstance(p, Polynomial)
 
-        return any(lead_reducible(p, g) for g in buchberger(*self.generators))
+        r = p
+        for g in self.generators:
+            _, r = p / g
+            if r == 0:
+                return True
 
+        return False
+
+def random_monomial(max_exp, variables):
+    v = {}
+    for var in variables:
+        v[var] = randint(0, max_exp)
+
+    return Monomial(1, v)
+
+
+def random_polynomial(max_terms, max_exp, variables):
+    num_terms = randint(1, max_terms)
+    monomials = []
+    for i in range(num_terms):
+        monomials.append(random_monomial(max_exp, variables))
+
+    print(monomials)
+    return Polynomial(*monomials)
 
 # For testing
 x = Variable("x")
@@ -403,6 +423,9 @@ m1 = Monomial(2, {x: 1, z: 1})
 m2 = Monomial(3, {y: 2})
 m3 = Monomial(1, {x: 1})
 m4 = Monomial(1, {x: 3, y: 2, z: 2})
+
+ms =  [Monomial(1, {x:4, y:1, z:4}),
+       Monomial(1, {x:3, y:2, z:4})]
 
 p1 = Polynomial(m1, m2)
 p2 = Polynomial(m3)
