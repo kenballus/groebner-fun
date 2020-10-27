@@ -24,11 +24,13 @@ def grevlex(m1, m2):
         return 1
     elif m1.degree < m2.degree:
         return -1
+
     for sym in sorted({**m1.variables, **m2.variables}, key=lambda var: var.symbol, reverse=True):
         if sym in m1.variables and sym not in m2.variables:
             return -1
         elif sym not in m1.variables and sym in m2.variables:
             return 1
         elif sym in m1.variables and sym in m2.variables:
-            return m2.variables[sym] - m1.variables[sym]
+            if m2.variables[sym] - m1.variables[sym] != 0:
+                return m2.variables[sym] - m1.variables[sym]
     return 0

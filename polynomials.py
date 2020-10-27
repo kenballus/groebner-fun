@@ -406,12 +406,12 @@ def random_monomial(max_exp, variables):
 
 
 def random_polynomial(max_terms, max_exp, variables):
+    """ There is a bug in the Polynomial constructor that can cause infinite recursion. This function is affected by that. """
     num_terms = randint(1, max_terms)
     monomials = []
     for i in range(num_terms):
         monomials.append(random_monomial(max_exp, variables))
 
-    print(monomials)
     return Polynomial(*monomials)
 
 # For testing
