@@ -348,40 +348,11 @@ def buchberger(*polynomials):
 
     return polynomials
 
-# def minimize_gb(*polynomials):
-#     """ This probably doesn't work """
-#     polynomials = list(polynomials)
-
-#     tried = set()
-#     while True:
-#         index_to_delete = None
-#         for i in range(len(polynomials)):
-#             for j in range(len(polynomials)):
-#                 if i == j:
-#                     continue
-#                 p1 = polynomials[i]
-#                 p2 = polynomials[j]
-
-#                 if (p1, p2) in tried:
-#                     continue
-#                 tried.add((p1, p2))
-
-#                 if lead_reducible(p1, p2):
-#                     index_to_delete = i
-#                     break
-#             if index_to_delete is not None:
-#                 del polynomials[index_to_delete]
-#                 break
-#         if index_to_delete is None:
-#             break
-
-#     return polynomials
-
 class Ideal:
     """ Definitely incomplete """
     def __init__(self, *generators):
         assert generators != () and all(isinstance(g, Polynomial) for g in generators)
-        self.generators = generators
+        self.generators = buchberger(*generators)
 
     def __str__(self):
         return f"ideal{self.generators}"
@@ -405,8 +376,7 @@ def random_monomial(max_exp, variables):
     return Monomial(1, v)
 
 
-def random_polynomial(max_terms, max_exp, variables):
-    """ There is a bug in the Polynomial constructor that can cause infinite recursion. This function is affected by that. """
+def random_polynomial(max_terms=5, max_exp=3, variables=tuple(map(Variable, ("x", "y", "z")))):
     num_terms = randint(1, max_terms)
     monomials = []
     for i in range(num_terms):
@@ -419,14 +389,15 @@ x = Variable("x")
 y = Variable("y")
 z = Variable("z")
 
-m1 = Monomial(2, {x: 1, z: 1})
-m2 = Monomial(3, {y: 2})
-m3 = Monomial(1, {x: 1})
-m4 = Monomial(1, {x: 3, y: 2, z: 2})
+m1 = Monomial(1, {Variable("x"): 2})
+m2 = Monomial(1, {Variable("y"): 2})
+m3 = Monomial(1, {Variable("z"): 2})
+m4 = Monomial(1, {Variable("x"): 1,
+                  Variable("y"): 1})
+m5 = Monomial(1, {Variable("x"): 1,
+                  Variable("z"): 1})
+m6 = Monomial(1, {Variable("y"): 1,
+                  Variable("z"): 1})
 
-ms =  [Monomial(1, {x:4, y:1, z:4}),
-       Monomial(1, {x:3, y:2, z:4})]
-
-p1 = Polynomial(m1, m2)
-p2 = Polynomial(m3)
-p3 = Polynomial(m4, m3)
+p1 = Polynomial(m1)
+p2 = Polynomial(m1, m2, m3, m4, m5, m6)
